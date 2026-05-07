@@ -1,4 +1,4 @@
-use rusqlite::{Connection, Result, params};
+use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 
@@ -16,7 +16,8 @@ pub struct ScanSummary {
 
 pub fn init_db(path: &str) -> Result<DbPool> {
     let conn = Connection::open(path)?;
-    conn.execute_batch("
+    conn.execute_batch(
+        "
         PRAGMA journal_mode=WAL;
 
         CREATE TABLE IF NOT EXISTS scans (
@@ -51,7 +52,8 @@ pub fn init_db(path: &str) -> Result<DbPool> {
             target TEXT NOT NULL UNIQUE,
             created_at TEXT NOT NULL
         );
-    ")?;
+    ",
+    )?;
     Ok(Arc::new(Mutex::new(conn)))
 }
 
@@ -90,7 +92,8 @@ pub fn save_scan(
 
 pub fn get_scan_history(pool: &DbPool) -> Result<Vec<ScanSummary>> {
     let conn = pool.lock().unwrap();
-    let mut stmt = conn.prepare("
+    let mut stmt = conn.prepare(
+        "
         SELECT s.id, s.target, s.scan_type, s.started_at,
                COUNT(DISTINCT p.id) as port_count,
                COUNT(DISTINCT v.id) as vuln_count
@@ -100,7 +103,8 @@ pub fn get_scan_history(pool: &DbPool) -> Result<Vec<ScanSummary>> {
         GROUP BY s.id
         ORDER BY s.id DESC
         LIMIT 100
-    ")?;
+    ",
+    )?;
     let rows = stmt.query_map([], |row| {
         Ok(ScanSummary {
             id: row.get(0)?,
@@ -117,39 +121,44 @@ pub fn get_scan_history(pool: &DbPool) -> Result<Vec<ScanSummary>> {
 pub fn get_scan_detail(pool: &DbPool, id: i64) -> Result<Option<crate::scanner::ScanResult>> {
     let conn = pool.lock().unwrap();
 
-    let scan: Option<(String, String, String)> = conn.query_row(
-        "SELECT target, scan_type, started_at FROM scans WHERE id = ?1",
-        params![id],
-        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-    ).ok();
+    let scan: Option<(String, String, String)> = conn
+        .query_row(
+            "SELECT target, scan_type, started_at FROM scans WHERE id = ?1",
+            params![id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .ok();
 
     let Some((target, scan_type, started_at)) = scan else {
         return Ok(None);
     };
 
     let mut port_stmt = conn.prepare(
-        "SELECT port, protocol, state, service, version FROM scan_ports WHERE scan_id = ?1"
+        "SELECT port, protocol, state, service, version FROM scan_ports WHERE scan_id = ?1",
     )?;
-    let ports: Vec<crate::scanner::Port> = port_stmt.query_map(params![id], |row| {
-        Ok(crate::scanner::Port {
-            port: row.get(0)?,
-            protocol: row.get(1)?,
-            state: row.get(2)?,
-            service: row.get(3)?,
-            version: row.get(4)?,
-        })
-    })?.collect::<Result<Vec<_>>>()?;
+    let ports: Vec<crate::scanner::Port> = port_stmt
+        .query_map(params![id], |row| {
+            Ok(crate::scanner::Port {
+                port: row.get(0)?,
+                protocol: row.get(1)?,
+                state: row.get(2)?,
+                service: row.get(3)?,
+                version: row.get(4)?,
+            })
+        })?
+        .collect::<Result<Vec<_>>>()?;
 
-    let mut vuln_stmt = conn.prepare(
-        "SELECT port, script_id, output FROM scan_vulns WHERE scan_id = ?1"
-    )?;
-    let vulns: Vec<crate::scanner::Vuln> = vuln_stmt.query_map(params![id], |row| {
-        Ok(crate::scanner::Vuln {
-            port: row.get(0)?,
-            script_id: row.get(1)?,
-            output: row.get(2)?,
-        })
-    })?.collect::<Result<Vec<_>>>()?;
+    let mut vuln_stmt =
+        conn.prepare("SELECT port, script_id, output FROM scan_vulns WHERE scan_id = ?1")?;
+    let vulns: Vec<crate::scanner::Vuln> = vuln_stmt
+        .query_map(params![id], |row| {
+            Ok(crate::scanner::Vuln {
+                port: row.get(0)?,
+                script_id: row.get(1)?,
+                output: row.get(2)?,
+            })
+        })?
+        .collect::<Result<Vec<_>>>()?;
 
     Ok(Some(crate::scanner::ScanResult {
         target,

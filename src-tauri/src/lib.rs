@@ -1,10 +1,10 @@
+mod cve;
 mod database;
 mod scanner;
-mod cve;
 
+use cve::{CveItem, CveSearchResult};
 use database::{DbPool, ScanSummary};
 use scanner::ScanResult;
-use cve::{CveSearchResult, CveItem};
 use tauri::State;
 
 struct AppState {
@@ -17,11 +17,9 @@ async fn run_scan(
     target: String,
     scan_type: String,
 ) -> Result<ScanResult, String> {
-    let result = tokio::task::spawn_blocking(move || {
-        scanner::run_nmap_scan(&target, &scan_type)
-    })
-    .await
-    .map_err(|e| format!("Task error: {e}"))??;
+    let result = tokio::task::spawn_blocking(move || scanner::run_nmap_scan(&target, &scan_type))
+        .await
+        .map_err(|e| format!("Task error: {e}"))??;
 
     let started_at = result.started_at.clone();
     let raw = serde_json::to_string(&result).unwrap_or_default();

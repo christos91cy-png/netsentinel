@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use std::process::Command;
 use quick_xml::events::Event;
 use quick_xml::Reader;
+use serde::{Deserialize, Serialize};
+use std::process::Command;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Port {
@@ -36,13 +36,27 @@ pub fn run_nmap_scan(target: &str, scan_type: &str) -> Result<ScanResult, String
     let extra_args: Vec<String>;
     match scan_type {
         "quick" => {
-            extra_args = vec!["-F".to_string(), "-sV".to_string(), "--version-intensity".to_string(), "3".to_string()];
+            extra_args = vec![
+                "-F".to_string(),
+                "-sV".to_string(),
+                "--version-intensity".to_string(),
+                "3".to_string(),
+            ];
         }
         "full" => {
-            extra_args = vec!["-p-".to_string(), "-sV".to_string(), "--version-intensity".to_string(), "5".to_string()];
+            extra_args = vec![
+                "-p-".to_string(),
+                "-sV".to_string(),
+                "--version-intensity".to_string(),
+                "5".to_string(),
+            ];
         }
         "vuln" => {
-            extra_args = vec!["-sV".to_string(), "--script".to_string(), "vuln".to_string()];
+            extra_args = vec![
+                "-sV".to_string(),
+                "--script".to_string(),
+                "vuln".to_string(),
+            ];
         }
         _ => return Err(format!("Unknown scan type: {scan_type}")),
     }
@@ -97,7 +111,12 @@ fn chrono_now() -> String {
     format!("{years}-xx-xx {}:{}:{}", hours % 24, mins % 60, s % 60)
 }
 
-fn parse_nmap_xml(xml: &str, target: &str, scan_type: &str, started_at: &str) -> Result<ScanResult, String> {
+fn parse_nmap_xml(
+    xml: &str,
+    target: &str,
+    scan_type: &str,
+    started_at: &str,
+) -> Result<ScanResult, String> {
     let mut reader = Reader::from_str(xml);
     reader.config_mut().trim_text(true);
 
@@ -113,46 +132,42 @@ fn parse_nmap_xml(xml: &str, target: &str, scan_type: &str, started_at: &str) ->
     let mut buf = Vec::new();
     loop {
         match reader.read_event_into(&mut buf) {
-            Ok(Event::Start(e)) | Ok(Event::Empty(e)) => {
-                match e.name().as_ref() {
-                    b"port" => {
-                        current_port = attr_value(&e, b"portid")
-                            .and_then(|v| v.parse().ok());
-                        current_protocol = attr_value(&e, b"protocol")
-                            .unwrap_or_default();
-                        current_state = String::new();
-                        current_service = None;
-                        current_version = None;
-                    }
-                    b"state" => {
-                        current_state = attr_value(&e, b"state").unwrap_or_default();
-                    }
-                    b"service" => {
-                        let name = attr_value(&e, b"name");
-                        let product = attr_value(&e, b"product");
-                        let version = attr_value(&e, b"version");
-                        current_service = name;
-                        current_version = match (product, version) {
-                            (Some(p), Some(v)) => Some(format!("{p} {v}")),
-                            (Some(p), None) => Some(p),
-                            (None, Some(v)) => Some(v),
-                            _ => None,
-                        };
-                    }
-                    b"script" => {
-                        let script_id = attr_value(&e, b"id").unwrap_or_default();
-                        let output = attr_value(&e, b"output").unwrap_or_default();
-                        if !script_id.is_empty() {
-                            vulns.push(Vuln {
-                                port: current_port,
-                                script_id,
-                                output,
-                            });
-                        }
-                    }
-                    _ => {}
+            Ok(Event::Start(e)) | Ok(Event::Empty(e)) => match e.name().as_ref() {
+                b"port" => {
+                    current_port = attr_value(&e, b"portid").and_then(|v| v.parse().ok());
+                    current_protocol = attr_value(&e, b"protocol").unwrap_or_default();
+                    current_state = String::new();
+                    current_service = None;
+                    current_version = None;
                 }
-            }
+                b"state" => {
+                    current_state = attr_value(&e, b"state").unwrap_or_default();
+                }
+                b"service" => {
+                    let name = attr_value(&e, b"name");
+                    let product = attr_value(&e, b"product");
+                    let version = attr_value(&e, b"version");
+                    current_service = name;
+                    current_version = match (product, version) {
+                        (Some(p), Some(v)) => Some(format!("{p} {v}")),
+                        (Some(p), None) => Some(p),
+                        (None, Some(v)) => Some(v),
+                        _ => None,
+                    };
+                }
+                b"script" => {
+                    let script_id = attr_value(&e, b"id").unwrap_or_default();
+                    let output = attr_value(&e, b"output").unwrap_or_default();
+                    if !script_id.is_empty() {
+                        vulns.push(Vuln {
+                            port: current_port,
+                            script_id,
+                            output,
+                        });
+                    }
+                }
+                _ => {}
+            },
             Ok(Event::End(e)) => {
                 if e.name().as_ref() == b"port" {
                     if let Some(port_num) = current_port {

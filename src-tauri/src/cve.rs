@@ -98,26 +98,35 @@ pub async fn search_cves(keyword: &str, page: u32) -> Result<CveSearchResult, St
         return Err(format!("NVD API returned status {}", resp.status()));
     }
 
-    let nvd: NvdResponse = resp.json().await.map_err(|e| format!("NVD parse error: {e}"))?;
+    let nvd: NvdResponse = resp
+        .json()
+        .await
+        .map_err(|e| format!("NVD parse error: {e}"))?;
 
-    let items = nvd.vulnerabilities.into_iter().map(|w| {
-        let cve = w.cve;
-        let description = cve.descriptions.iter()
-            .find(|d| d.lang == "en")
-            .map(|d| d.value.clone())
-            .unwrap_or_default();
+    let items = nvd
+        .vulnerabilities
+        .into_iter()
+        .map(|w| {
+            let cve = w.cve;
+            let description = cve
+                .descriptions
+                .iter()
+                .find(|d| d.lang == "en")
+                .map(|d| d.value.clone())
+                .unwrap_or_default();
 
-        let (cvss_score, severity) = extract_cvss(&cve.metrics);
+            let (cvss_score, severity) = extract_cvss(&cve.metrics);
 
-        CveItem {
-            id: cve.id,
-            description,
-            cvss_score,
-            severity,
-            published: cve.published,
-            last_modified: cve.last_modified,
-        }
-    }).collect();
+            CveItem {
+                id: cve.id,
+                description,
+                cvss_score,
+                severity,
+                published: cve.published,
+                last_modified: cve.last_modified,
+            }
+        })
+        .collect();
 
     Ok(CveSearchResult {
         total: nvd.total_results,
@@ -141,12 +150,19 @@ pub async fn get_cve(cve_id: &str) -> Result<CveItem, String> {
         .await
         .map_err(|e| format!("NVD request failed: {e}"))?;
 
-    let nvd: NvdResponse = resp.json().await.map_err(|e| format!("NVD parse error: {e}"))?;
+    let nvd: NvdResponse = resp
+        .json()
+        .await
+        .map_err(|e| format!("NVD parse error: {e}"))?;
 
-    nvd.vulnerabilities.into_iter().next()
+    nvd.vulnerabilities
+        .into_iter()
+        .next()
         .map(|w| {
             let cve = w.cve;
-            let description = cve.descriptions.iter()
+            let description = cve
+                .descriptions
+                .iter()
                 .find(|d| d.lang == "en")
                 .map(|d| d.value.clone())
                 .unwrap_or_default();
@@ -164,25 +180,35 @@ pub async fn get_cve(cve_id: &str) -> Result<CveItem, String> {
 }
 
 fn extract_cvss(metrics: &Option<NvdMetrics>) -> (Option<f64>, Option<String>) {
-    let Some(m) = metrics else { return (None, None) };
+    let Some(m) = metrics else {
+        return (None, None);
+    };
 
     if let Some(v3) = &m.cvss_metric_v31 {
         if let Some(first) = v3.first() {
-            return (Some(first.cvss_data.base_score), first.base_severity.clone());
+            return (
+                Some(first.cvss_data.base_score),
+                first.base_severity.clone(),
+            );
         }
     }
     if let Some(v2) = &m.cvss_metric_v2 {
         if let Some(first) = v2.first() {
-            return (Some(first.cvss_data.base_score), first.base_severity.clone());
+            return (
+                Some(first.cvss_data.base_score),
+                first.base_severity.clone(),
+            );
         }
     }
     (None, None)
 }
 
 fn urlenccode(s: &str) -> String {
-    s.chars().map(|c| match c {
-        'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => c.to_string(),
-        ' ' => "+".to_string(),
-        _ => format!("%{:02X}", c as u32),
-    }).collect()
+    s.chars()
+        .map(|c| match c {
+            'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => c.to_string(),
+            ' ' => "+".to_string(),
+            _ => format!("%{:02X}", c as u32),
+        })
+        .collect()
 }
