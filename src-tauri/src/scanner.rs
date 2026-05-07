@@ -33,33 +33,26 @@ pub fn run_nmap_scan(target: &str, scan_type: &str) -> Result<ScanResult, String
 
     let mut args: Vec<&str> = vec!["-oX", "-", "--open"];
 
-    let extra_args: Vec<String>;
-    match scan_type {
-        "quick" => {
-            extra_args = vec![
-                "-F".to_string(),
-                "-sV".to_string(),
-                "--version-intensity".to_string(),
-                "3".to_string(),
-            ];
-        }
-        "full" => {
-            extra_args = vec![
-                "-p-".to_string(),
-                "-sV".to_string(),
-                "--version-intensity".to_string(),
-                "5".to_string(),
-            ];
-        }
-        "vuln" => {
-            extra_args = vec![
-                "-sV".to_string(),
-                "--script".to_string(),
-                "vuln".to_string(),
-            ];
-        }
+    let extra_args: Vec<String> = match scan_type {
+        "quick" => vec![
+            "-F".to_string(),
+            "-sV".to_string(),
+            "--version-intensity".to_string(),
+            "3".to_string(),
+        ],
+        "full" => vec![
+            "-p-".to_string(),
+            "-sV".to_string(),
+            "--version-intensity".to_string(),
+            "5".to_string(),
+        ],
+        "vuln" => vec![
+            "-sV".to_string(),
+            "--script".to_string(),
+            "vuln".to_string(),
+        ],
         _ => return Err(format!("Unknown scan type: {scan_type}")),
-    }
+    };
 
     for a in &extra_args {
         args.push(a.as_str());
@@ -168,19 +161,17 @@ fn parse_nmap_xml(
                 }
                 _ => {}
             },
-            Ok(Event::End(e)) => {
-                if e.name().as_ref() == b"port" {
-                    if let Some(port_num) = current_port {
-                        ports.push(Port {
-                            port: port_num,
-                            protocol: current_protocol.clone(),
-                            state: current_state.clone(),
-                            service: current_service.clone(),
-                            version: current_version.clone(),
-                        });
-                    }
-                    current_port = None;
+            Ok(Event::End(e)) if e.name().as_ref() == b"port" => {
+                if let Some(port_num) = current_port {
+                    ports.push(Port {
+                        port: port_num,
+                        protocol: current_protocol.clone(),
+                        state: current_state.clone(),
+                        service: current_service.clone(),
+                        version: current_version.clone(),
+                    });
                 }
+                current_port = None;
             }
             Ok(Event::Eof) => break,
             Err(e) => return Err(format!("XML parse error: {e}")),
