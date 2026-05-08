@@ -166,23 +166,20 @@ async fn correlate_scan_cves(
                 continue;
             }
 
-            match cve::search_cves(&state.http, &keyword, 0).await {
-                Ok(result) => {
-                    for item in result.items.iter().take(3) {
-                        if seen.contains(&item.id) {
-                            continue;
-                        }
-                        seen.insert(item.id.clone());
-                        results.push(serde_json::json!({
-                            "port": port.port,
-                            "service": service,
-                            "cve_id": item.id,
-                            "description": item.description,
-                            "cvss_score": item.cvss_score,
-                        }));
+            if let Ok(result) = cve::search_cves(&state.http, &keyword, 0).await {
+                for item in result.items.iter().take(3) {
+                    if seen.contains(&item.id) {
+                        continue;
                     }
+                    seen.insert(item.id.clone());
+                    results.push(serde_json::json!({
+                        "port": port.port,
+                        "service": service,
+                        "cve_id": item.id,
+                        "description": item.description,
+                        "cvss_score": item.cvss_score,
+                    }));
                 }
-                Err(_) => {}
             }
         }
     }

@@ -186,15 +186,11 @@ pub(crate) fn parse_nmap_xml(
                 b"status" => {
                     current_host_status = attr_value(&e, b"state");
                 }
-                b"address" => {
-                    if attr_value(&e, b"addrtype").as_deref() == Some("ipv4") {
-                        current_host_addr = attr_value(&e, b"addr");
-                    }
+                b"address" if attr_value(&e, b"addrtype").as_deref() == Some("ipv4") => {
+                    current_host_addr = attr_value(&e, b"addr");
                 }
-                b"hostname" => {
-                    if current_host_hostname.is_none() {
-                        current_host_hostname = attr_value(&e, b"name");
-                    }
+                b"hostname" if current_host_hostname.is_none() => {
+                    current_host_hostname = attr_value(&e, b"name");
                 }
                 b"port" => {
                     current_port = attr_value(&e, b"portid").and_then(|v| v.parse().ok());
