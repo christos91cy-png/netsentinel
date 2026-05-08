@@ -74,7 +74,11 @@ struct NvdCvssData {
 
 const NVD_BASE: &str = "https://services.nvd.nist.gov/rest/json/cves/2.0";
 
-pub async fn search_cves(client: &reqwest::Client, keyword: &str, page: u32) -> Result<CveSearchResult, String> {
+pub async fn search_cves(
+    client: &reqwest::Client,
+    keyword: &str,
+    page: u32,
+) -> Result<CveSearchResult, String> {
     let start_index = page * 20;
     let url = format!(
         "{NVD_BASE}?keywordSearch={}&resultsPerPage=20&startIndex={}",

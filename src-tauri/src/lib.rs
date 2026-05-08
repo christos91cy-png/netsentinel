@@ -206,11 +206,7 @@ async fn lookup_epss(
 }
 
 #[tauri::command]
-fn diff_scans(
-    state: State<'_, AppState>,
-    id_a: i64,
-    id_b: i64,
-) -> Result<diff::ScanDiff, String> {
+fn diff_scans(state: State<'_, AppState>, id_a: i64, id_b: i64) -> Result<diff::ScanDiff, String> {
     diff::diff_scans(&state.db, id_a, id_b)
 }
 

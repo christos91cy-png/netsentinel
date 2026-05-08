@@ -56,10 +56,7 @@ pub async fn check_kev(client: &Client, cve_ids: Vec<String>) -> Result<Vec<KevE
     Ok(filtered)
 }
 
-pub async fn lookup_epss(
-    client: &Client,
-    cve_ids: Vec<String>,
-) -> Result<Vec<EpssEntry>, String> {
+pub async fn lookup_epss(client: &Client, cve_ids: Vec<String>) -> Result<Vec<EpssEntry>, String> {
     if cve_ids.is_empty() {
         return Ok(vec![]);
     }

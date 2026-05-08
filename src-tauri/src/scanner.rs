@@ -33,7 +33,6 @@ pub struct ScanResult {
     pub os_guess: Option<String>,
 }
 
-
 pub async fn run_nmap_scan_async(
     target: &str,
     scan_type: &str,
@@ -231,10 +230,9 @@ pub(crate) fn parse_nmap_xml(
                     }
                 }
                 b"osmatch" => {
-                    if let (Some(name), Some(accuracy_str)) = (
-                        attr_value(&e, b"name"),
-                        attr_value(&e, b"accuracy"),
-                    ) {
+                    if let (Some(name), Some(accuracy_str)) =
+                        (attr_value(&e, b"name"), attr_value(&e, b"accuracy"))
+                    {
                         let accuracy: u32 = accuracy_str.parse().unwrap_or(0);
                         if accuracy > best_os_accuracy {
                             best_os_accuracy = accuracy;

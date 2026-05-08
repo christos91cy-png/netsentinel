@@ -13,7 +13,12 @@ pub struct ShodanHost {
 
 pub async fn lookup(client: &Client, ip: &str) -> Result<ShodanHost, String> {
     // Skip private/loopback IPs
-    if ip.starts_with("192.168.") || ip.starts_with("10.") || ip.starts_with("172.") || ip == "127.0.0.1" || ip == "localhost" {
+    if ip.starts_with("192.168.")
+        || ip.starts_with("10.")
+        || ip.starts_with("172.")
+        || ip == "127.0.0.1"
+        || ip == "localhost"
+    {
         return Err("Private IP — Shodan lookup skipped".to_string());
     }
     let url = format!("https://internetdb.shodan.io/{}", ip);
