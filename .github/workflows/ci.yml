@@ -65,3 +65,7 @@ jobs:
       - name: Cargo check
         working-directory: src-tauri
         run: cargo check
+
+      - name: Run tests
+        working-directory: src-tauri
+        run: cargo test

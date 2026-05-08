@@ -57,7 +57,7 @@ export default function CveSearch() {
   const totalPages = result ? Math.ceil(result.total / 20) : 0;
 
   return (
-    <div className="max-w-4xl">
+    <div className="w-full">
       <h1 className="text-2xl font-bold mb-1" style={{ color: "#00ff88" }}>CVE Search</h1>
       <p className="text-sm mb-4" style={{ color: "#8b949e" }}>
         Search the NVD (National Vulnerability Database) in real time.

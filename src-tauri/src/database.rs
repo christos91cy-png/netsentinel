@@ -19,13 +19,13 @@ pub fn init_db(path: &str) -> Result<DbPool> {
     conn.execute_batch(
         "
         PRAGMA journal_mode=WAL;
+        PRAGMA foreign_keys = ON;
 
         CREATE TABLE IF NOT EXISTS scans (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             target TEXT NOT NULL,
             scan_type TEXT NOT NULL,
-            started_at TEXT NOT NULL,
-            raw_output TEXT NOT NULL
+            started_at TEXT NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS scan_ports (
@@ -52,8 +52,26 @@ pub fn init_db(path: &str) -> Result<DbPool> {
             target TEXT NOT NULL UNIQUE,
             created_at TEXT NOT NULL
         );
+
+        CREATE INDEX IF NOT EXISTS idx_scan_ports_scan_id ON scan_ports(scan_id);
+        CREATE INDEX IF NOT EXISTS idx_scan_vulns_scan_id ON scan_vulns(scan_id);
+        CREATE INDEX IF NOT EXISTS idx_scans_target ON scans(target);
     ",
     )?;
+
+    // Migration: drop raw_output column if it still exists from v0.1.0 schema
+    let has_raw_output: bool = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('scans') WHERE name='raw_output'",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .unwrap_or(0)
+        > 0;
+    if has_raw_output {
+        conn.execute_batch("ALTER TABLE scans DROP COLUMN raw_output;")?;
+    }
+
     Ok(Arc::new(Mutex::new(conn)))
 }
 
@@ -62,14 +80,13 @@ pub fn save_scan(
     target: &str,
     scan_type: &str,
     started_at: &str,
-    raw_output: &str,
     ports: &[crate::scanner::Port],
     vulns: &[crate::scanner::Vuln],
 ) -> Result<i64> {
     let conn = pool.lock().unwrap();
     conn.execute(
-        "INSERT INTO scans (target, scan_type, started_at, raw_output) VALUES (?1, ?2, ?3, ?4)",
-        params![target, scan_type, started_at, raw_output],
+        "INSERT INTO scans (target, scan_type, started_at) VALUES (?1, ?2, ?3)",
+        params![target, scan_type, started_at],
     )?;
     let scan_id = conn.last_insert_rowid();
 
@@ -88,6 +105,14 @@ pub fn save_scan(
     }
 
     Ok(scan_id)
+}
+
+pub fn delete_scan(pool: &DbPool, id: i64) -> Result<()> {
+    let conn = pool.lock().unwrap();
+    conn.execute("DELETE FROM scan_vulns WHERE scan_id = ?1", params![id])?;
+    conn.execute("DELETE FROM scan_ports WHERE scan_id = ?1", params![id])?;
+    conn.execute("DELETE FROM scans WHERE id = ?1", params![id])?;
+    Ok(())
 }
 
 pub fn get_scan_history(pool: &DbPool) -> Result<Vec<ScanSummary>> {
@@ -166,5 +191,6 @@ pub fn get_scan_detail(pool: &DbPool, id: i64) -> Result<Option<crate::scanner::
         started_at,
         ports,
         vulns,
+        os_guess: None,
     }))
 }

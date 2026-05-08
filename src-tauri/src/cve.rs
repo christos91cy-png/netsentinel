@@ -74,18 +74,13 @@ struct NvdCvssData {
 
 const NVD_BASE: &str = "https://services.nvd.nist.gov/rest/json/cves/2.0";
 
-pub async fn search_cves(keyword: &str, page: u32) -> Result<CveSearchResult, String> {
+pub async fn search_cves(client: &reqwest::Client, keyword: &str, page: u32) -> Result<CveSearchResult, String> {
     let start_index = page * 20;
     let url = format!(
         "{NVD_BASE}?keywordSearch={}&resultsPerPage=20&startIndex={}",
         urlenccode(keyword),
         start_index
     );
-
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .build()
-        .map_err(|e| e.to_string())?;
 
     let resp = client
         .get(&url)
@@ -135,13 +130,8 @@ pub async fn search_cves(keyword: &str, page: u32) -> Result<CveSearchResult, St
     })
 }
 
-pub async fn get_cve(cve_id: &str) -> Result<CveItem, String> {
+pub async fn get_cve(client: &reqwest::Client, cve_id: &str) -> Result<CveItem, String> {
     let url = format!("{NVD_BASE}?cveId={cve_id}");
-
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .build()
-        .map_err(|e| e.to_string())?;
 
     let resp = client
         .get(&url)

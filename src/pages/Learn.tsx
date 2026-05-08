@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 
 const TOPICS = [
   {
@@ -105,36 +105,125 @@ Never exploit a vulnerability beyond what is needed to prove it exists. Accessin
   },
 ];
 
+function isSeparatorRow(line: string): boolean {
+  // Matches lines like |---|---|--- or | --- | --- |
+  return /^\|[\s\-:|]+\|/.test(line);
+}
+
+function parseTableRow(line: string): string[] {
+  return line
+    .split("|")
+    .slice(1, -1) // drop leading and trailing empty splits
+    .map((cell) => cell.trim());
+}
+
+function renderTable(tableLines: string[], key: string) {
+  const nonSeparator = tableLines.filter((l) => !isSeparatorRow(l));
+  if (nonSeparator.length === 0) return null;
+
+  const [headerLine, ...bodyLines] = nonSeparator;
+  const headers = parseTableRow(headerLine);
+
+  return (
+    <div key={key} className="overflow-x-auto my-3 rounded border" style={{ borderColor: "#30363d" }}>
+      <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
+        <thead>
+          <tr style={{ background: "#0f1117" }}>
+            {headers.map((h, i) => (
+              <th
+                key={i}
+                className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide border-b"
+                style={{ color: "#8b949e", borderColor: "#30363d" }}
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {bodyLines.map((line, ri) => {
+            const cells = parseTableRow(line);
+            return (
+              <tr
+                key={ri}
+                style={{ background: ri % 2 === 0 ? "#161b22" : "#1f2937" }}
+              >
+                {cells.map((cell, ci) => (
+                  <td
+                    key={ci}
+                    className="px-3 py-2 border-t text-xs"
+                    style={{ color: "#e6edf3", borderColor: "#30363d" }}
+                  >
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function renderMarkdown(text: string) {
-  // Simple renderer for bold and tables
+  // Collect lines; detect and render table blocks, then render other elements
   const lines = text.split("\n");
-  return lines.map((line, i) => {
-    if (line.startsWith("**") && line.endsWith("**") && line.length > 4) {
-      return <h3 key={i} className="text-sm font-bold mt-4 mb-1" style={{ color: "#00bcd4" }}>{line.slice(2, -2)}</h3>;
+  const output: React.ReactNode[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Detect start of a table block
+    if (line.startsWith("|")) {
+      const tableLines: string[] = [];
+      while (i < lines.length && lines[i].startsWith("|")) {
+        tableLines.push(lines[i]);
+        i++;
+      }
+      output.push(renderTable(tableLines, `table-${i}`));
+      continue;
     }
-    if (line.startsWith("- **")) {
+
+    if (line.startsWith("**") && line.endsWith("**") && line.length > 4) {
+      output.push(
+        <h3 key={i} className="text-sm font-bold mt-4 mb-1" style={{ color: "#00bcd4" }}>
+          {line.slice(2, -2)}
+        </h3>
+      );
+    } else if (line.startsWith("- **")) {
       const match = line.match(/^- \*\*(.+?)\*\*:? ?(.*)/);
       if (match) {
-        return (
+        output.push(
           <p key={i} className="text-sm mb-1 pl-3">
             <span className="font-bold" style={{ color: "#00ff88" }}>{match[1]}:</span>{" "}
             <span style={{ color: "#e6edf3" }}>{match[2]}</span>
           </p>
         );
       }
+    } else if (line.startsWith("- ")) {
+      output.push(
+        <p key={i} className="text-sm mb-0.5 pl-3" style={{ color: "#e6edf3" }}>
+          • {line.slice(2)}
+        </p>
+      );
+    } else if (line.startsWith("#")) {
+      // skip raw headings
+    } else if (line.trim() === "") {
+      output.push(<div key={i} className="h-2" />);
+    } else {
+      output.push(
+        <p key={i} className="text-sm mb-1" style={{ color: "#e6edf3" }}>
+          {line}
+        </p>
+      );
     }
-    if (line.startsWith("- ")) {
-      return <p key={i} className="text-sm mb-0.5 pl-3" style={{ color: "#e6edf3" }}>• {line.slice(2)}</p>;
-    }
-    if (line.startsWith("|")) {
-      return null; // skip table lines for simplicity
-    }
-    if (line.startsWith("#")) {
-      return null;
-    }
-    if (line.trim() === "") return <div key={i} className="h-2" />;
-    return <p key={i} className="text-sm mb-1" style={{ color: "#e6edf3" }}>{line}</p>;
-  });
+
+    i++;
+  }
+
+  return output;
 }
 
 export default function Learn() {
@@ -142,7 +231,7 @@ export default function Learn() {
   const topic = TOPICS.find((t) => t.id === active) ?? TOPICS[0];
 
   return (
-    <div className="max-w-4xl">
+    <div className="w-full">
       <h1 className="text-2xl font-bold mb-1" style={{ color: "#00ff88" }}>Learn</h1>
       <p className="text-sm mb-6" style={{ color: "#8b949e" }}>
         Security concepts, vulnerability types, and best practices.
